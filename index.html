@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Zim Tasks">
+<meta name="theme-color" content="#0a84ff">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<title>Zim Tasks</title>
+<style>
+:root{--bg:#f2f2f7;--card:#fff;--fg:#111;--mut:#8e8e93;--acc:#0a84ff;--line:#8883}
+@media(prefers-color-scheme:dark){:root{--bg:#000;--card:#1c1c1e;--fg:#f2f2f7}}
+*{box-sizing:border-box}
+body{margin:0;font:17px -apple-system,system-ui,sans-serif;background:var(--bg);color:var(--fg);
+  padding:env(safe-area-inset-top) 12px calc(24px + env(safe-area-inset-bottom))}
+h1{font-size:30px;margin:14px 4px 2px}
+#status{color:var(--mut);font-size:14px;margin:0 4px 12px;min-height:18px}
+.bar{display:flex;gap:8px;margin-bottom:10px}
+.bar button{flex:1;padding:10px 4px;border:0;border-radius:10px;background:var(--card);color:var(--acc);font:inherit;font-size:15px}
+.toggle{display:flex;align-items:center;gap:8px;margin:0 4px 12px;font-size:15px;color:var(--mut)}
+.area{background:var(--card);border-radius:12px;margin-bottom:14px;overflow:hidden}
+.row{display:flex;align-items:center;gap:8px;padding:11px 10px;border-bottom:1px solid var(--line);cursor:pointer;user-select:none;-webkit-user-select:none}
+.area>.row{font-weight:700;font-size:19px}
+.chev{width:14px;flex:none;color:var(--mut);transition:transform .15s}
+.open>.row>.chev{transform:rotate(90deg)}
+.name{flex:1}
+.today>.row>.name{color:var(--acc);font-weight:600}
+.badge{font-size:13px;color:#fff;background:var(--acc);border-radius:10px;padding:1px 8px}
+.task{display:flex;align-items:flex-start;gap:10px;padding:10px;border-bottom:1px solid var(--line)}
+.task input{width:22px;height:22px;flex:none;accent-color:var(--acc);margin:0}
+.txt{flex:1;word-break:break-word}
+.sdone .txt,.scancel .txt{text-decoration:line-through;color:var(--mut)}
+.smoved .txt{color:var(--mut);font-style:italic}
+.sub{font-weight:600;font-size:14px;color:var(--mut);padding:10px 10px 4px}
+.tag{color:var(--acc);font-size:15px}
+.due{font-size:13px;background:#ff9f0a22;color:#ff9f0a;border-radius:6px;padding:1px 6px;white-space:nowrap}
+.add{display:flex;gap:8px;padding:8px 10px;border-bottom:1px solid var(--line)}
+.add input{flex:1;min-width:0;padding:8px;border-radius:8px;border:1px solid var(--line);font:inherit;font-size:16px;background:var(--bg);color:var(--fg)}
+.add button{border:0;border-radius:8px;background:var(--acc);color:#fff;padding:0 14px;font:inherit;font-size:15px}
+.msg{padding:12px;color:var(--mut);font-size:14px}
+dialog{border:0;border-radius:14px;padding:16px;width:min(92vw,520px);background:var(--card);color:var(--fg)}
+dialog::backdrop{background:#0006}
+dialog h2{margin:0 0 8px}
+dialog label{display:block;font-size:14px;color:var(--mut);margin:10px 0}
+dialog input,dialog select,dialog textarea{display:block;width:100%;margin-top:4px;padding:10px;border-radius:10px;
+  border:1px solid var(--line);font:16px -apple-system,system-ui,sans-serif;background:var(--bg);color:var(--fg)}
+dialog textarea{height:170px;font-family:ui-monospace,Menlo,monospace}
+.btns{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
+.btns button{padding:10px 16px;border:0;border-radius:10px;font:inherit;background:var(--bg);color:var(--acc)}
+.btns .primary{background:var(--acc);color:#fff}
+#toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%);
+  background:#333e;color:#fff;padding:10px 16px;border-radius:20px;font-size:14px;opacity:0;
+  transition:opacity .3s;pointer-events:none;max-width:90%;text-align:center}
+#toast.show{opacity:1}
+</style>
+</head>
+<body>
+<h1>Zim Tasks</h1>
+<div id="status"></div>
+<div class="bar">
+  <button id="refreshBtn">↻ Refresh</button>
+  <button id="newBtn">＋ New</button>
+  <button id="collapseBtn">⇤ Collapse</button>
+  <button id="settingsBtn">⚙︎</button>
+</div>
+<label class="toggle"><input type="checkbox" id="hideDone"> Hide completed</label>
+<div id="tree"></div>
+
+<dialog id="settingsDlg">
+  <form id="settingsForm">
+    <h2>Settings</h2>
+    <label>GitHub token (fine-grained, Contents read/write)
+      <input type="password" id="tokenIn" autocomplete="off" placeholder="github_pat_…"></label>
+    <label>Configuration (YAML)
+      <textarea id="yamlIn" spellcheck="false" autocapitalize="off" autocorrect="off"></textarea></label>
+    <div class="btns"><button type="button" id="settingsCancel">Cancel</button><button class="primary">Save</button></div>
+  </form>
+</dialog>
+
+<dialog id="newDlg">
+  <form id="newForm">
+    <h2>New task list</h2>
+    <label>Area<select id="newRepo"></select></label>
+    <label>Date<input type="date" id="newDate"></label>
+    <label>Tasks (one per line, optional)<textarea id="newTasks"></textarea></label>
+    <div class="btns"><button type="button" id="newCancel">Cancel</button><button class="primary">Create</button></div>
+  </form>
+</dialog>
+
+<div id="toast"></div>
+<script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
